@@ -85,7 +85,6 @@ func (r *Resp) Read() (Value, error) {
 	}
 }
 
-// Reads a simple string (`+OK`).
 func (r *Resp) readSimpleString() (Value, error) {
 	line, err := r.readLine()
 	if err != nil {
@@ -94,7 +93,6 @@ func (r *Resp) readSimpleString() (Value, error) {
 	return Value{typ: "string", str: line}, nil
 }
 
-// Reads an error (`-ERR`).
 func (r *Resp) readError() (Value, error) {
 	line, err := r.readLine()
 	if err != nil {

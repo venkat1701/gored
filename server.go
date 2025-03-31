@@ -3,24 +3,39 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
+	"runtime"
 	"strings"
 )
 
-// StartServer starts the Redis server with a TCP Listener on the port 6379
-// and listens for incoming connections and allocates a goroutine for each connection client.
+// StartServer starts the redis compatible RESP server on port 7171
+// (instead of 6379, to comply with the assignment requirements)
 func StartServer() {
-	fmt.Println("Redis-like server starting on port 6379...")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "7171"
+	}
 
-	// listening to the port 6379
-	listener, err := net.Listen("tcp", ":6379")
+	// we want to use all the available CPU cores for the server
+	// this is important for performance, especially when handling multiple connections
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	fmt.Println("Key-Value Cache server starting on port", port, "...")
+	fmt.Println("Available CPU cores:", runtime.NumCPU())
+
+	// starting the tcp listener on port 7171
+	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 		return
 	}
-	// we will close the listener when the function ensd
+
+	// we'll close the listener when the function ends
 	defer listener.Close()
 
-	// Accepting all incoming connections and allocating them to a goroutine since they are green threads
+	fmt.Println("Server ready to accept connections")
+
+	// we accept all the connections in a loop
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -28,39 +43,46 @@ func StartServer() {
 			continue
 		}
 
-		// Handle the connection
+		// each client connection gets its own goroutine
 		go handleClient(conn)
 	}
 }
 
-// handleClient reads the incoming request from the client and processes it
+// handleClient reads the incoming requests from a client and processes them
 func handleClient(conn net.Conn) {
-
-	// we need to close the connection too offter the work of handlign with the client is done
+	// making sure we close the connection when we're done
 	defer conn.Close()
 
-	// We need to parse the request since we are using a RESP protocol to communicate with the client
-
+	// keep handling commands in a loop until client disconnects
 	for {
-		resp := NewResp(conn) // creating a new RESP instnacce to read the request
+		// creating a new RESP parser for this connection
+		resp := NewResp(conn)
+
+		// reeading the next command from client
 		value, err := resp.Read()
-		if err != nil { // This error might be possible when there's nothing to read from the connection
+		if err != nil {
+			// handle client disconnection gracefully
 			if err.Error() == "EOF" ||
 				strings.Contains(err.Error(), "connection reset") ||
 				strings.Contains(err.Error(), "wsarecv") {
-				fmt.Println("Client disconnected")
+				// Client disconnected - this is normal
 				return
 			}
 
+			// If we're here, something unexpected happened
 			fmt.Println("Error reading request:", err)
 			return
 		}
 
-		// processing the command and getting the response
+		// process the command to get a response
 		response := processCommand(value)
 
-		// writing the response back to client
+		// write response back to client
 		writer := NewWriter(conn)
-		writer.Write(response)
+		err = writer.Write(response)
+		if err != nil {
+			fmt.Println("Error writing response:", err)
+			return
+		}
 	}
 }

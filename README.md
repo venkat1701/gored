@@ -96,6 +96,21 @@ printf "*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$13\r\nHello, World!\r\n" | nc localho
 printf "*2\r\n$3\r\nGET\r\n$5\r\nmykey\r\n" | nc localhost 7171
 ```
 
+## Redis Benchmark Results
+
+The following table summarizes the performance of the Redis-like cache under a high-concurrency workload using `redis-benchmark`.
+
+| Operation | Requests | Time Taken (s) | Clients | Avg Latency (ms) | P50 Latency (ms) | P95 Latency (ms) | P99 Latency (ms) | Max Latency (ms) | Throughput (req/sec) |
+|-----------|----------|---------------|---------|------------------|------------------|------------------|------------------|------------------|----------------------|
+| **SET**   | 1,000,000 | 15.98         | 10,000  | 79.174           | 78.655           | 104.703          | 113.151          | 161.535          | 62,566.48           |
+| **GET**   | 1,000,000 | 15.94         | 10,000  | 79.167           | 79.167           | 100.159          | 112.639          | 130.239          | 62,801.51           |
+
+### Notes:
+- Benchmark was executed using `redis-benchmark -t SET,GET -n 1000000 -c 10000`.
+- Latency metrics represent the time taken per request.
+- Throughput is the number of requests served per second.
+
+
 ## Load Testing
 
 You can use Locust to benchmark Gored's performance.
